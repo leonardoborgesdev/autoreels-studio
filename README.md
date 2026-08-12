@@ -17,7 +17,7 @@ Em ambos, depois é só subir o vídeo do avatar (clonado num serviço tipo HeyG
 
 ## Features
 
-- **Roteiro por IA** — Gemini ou Claude (com fallback heurístico se os dois falharem), lendo descrição + README real do repositório via API do GitHub
+- **Roteiro por IA** — Gemini ou Claude (você escolhe o motor a cada job, com fallback heurístico se os dois falharem), em PT-BR ou inglês, lendo descrição + README real do repositório via API do GitHub
 - **Captura de tela automática** — Playwright rola a página do repositório sozinho (README, código, gráficos) e grava em 1080×1920
 - **Avatar circular com moldura animada** — detecção de rosto (OpenCV) recorta e centraliza automaticamente o avatar clonado, com anel decorativo girando (`hue` rotation no ffmpeg) e cutaways em tela cheia nos momentos certos
 - **Legenda estilo karaokê** — transcrição palavra-a-palavra (faster-whisper) vira legenda `.ass` com a palavra atual destacada em cor, sincronizada por timestamp
@@ -40,21 +40,25 @@ A dashboard (Flask) guarda o estado de cada job em disco (`dashboard/jobs/<id>/s
 
 ## Screenshots
 
-| Roteiro gerado | Captura de tela |
-|---|---|
-| ![roteiro](docs/screenshots/02_roteiro_gerado.png) | ![captura](docs/screenshots/03_captura_de_tela.png) |
+**Tela inicial** — cola o link, escolhe idioma e motor de IA (Gemini ou Claude), acompanha os jobs recentes:
 
-| Upload do avatar | Cores |
-|---|---|
-| ![avatar](docs/screenshots/04_upload_avatar.png) | ![cores](docs/screenshots/05_cores.png) |
+![Tela inicial](docs/screenshots/01_tela_inicial.png)
 
-| Música de fundo | Resultado final |
-|---|---|
-| ![musica](docs/screenshots/06_musica.png) | ![resultado](docs/screenshots/07_resultado_final.png) |
+**Wizard de 7 etapas** (Análise → Roteiro → Captura de tela → Avatar → Cores → Música & render → Resultado) — cada fase confirma o que a IA leu antes de seguir:
 
-| Histórico |
-|---|
-| ![historico](docs/screenshots/08_historico.png) |
+![Análise do repositório](docs/screenshots/02_analise_repositorio.png)
+
+**Modo Remodelar** — reaproveita um reel de referência, mostra o preview exato de como o avatar novo vai cobrir o original antes de compor:
+
+![Remodelar - referência](docs/screenshots/03_remodelar_referencia.png)
+
+**Slots do modo Remodelar** — status de roteiro/avatar por reel, upload direto pela dashboard (sem `scp`):
+
+![Slots do Remodelar](docs/screenshots/04_tela_remodelar_slots.png)
+
+**Histórico** — todos os vídeos já compostos, dos dois modos, com download e "abrir no editor" (FreeCut) direto do card:
+
+![Histórico](docs/screenshots/05_historico.png)
 
 ## Tech Stack
 
