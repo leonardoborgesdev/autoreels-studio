@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip"><svg class="icon"><use href="#ic-clock"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">{{ outputs|length }} vídeo{{ 's' if outputs|length != 1 else '' }}</span>
+        <h2>Histórico</h2>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Todos os vídeos já compostos, dos dois modos, mais recentes primeiro.</p>
+</div>
+
+<div class="thumbgrid">
+  {% for o in outputs %}
+  <div class="thumbcard">
+    {% if o.has_thumb %}
+      <img src="/job/{{ o.job_id }}/thumb/{{ o.idx }}" loading="lazy">
+    {% else %}
+      <div class="noimg"><svg class="icon"><use href="#ic-video"/></svg>sem thumbnail</div>
+    {% endif %}
+    <div class="body">
+      <div class="name">{{ o.name }}</div>
+      <div class="meta">
+        <span class="badge" data-status="{{ 'busy' if o.kind == 'remodel' else 'pending' }}">{{ 'remodelar' if o.kind == 'remodel' else 'gerar novo' }}</span>
+        {{ o.created_at }}
+      </div>
+      {% if o.roteiro %}
+      <div class="roteiro-preview">{{ o.roteiro[:140] }}{{ '…' if o.roteiro|length > 140 else '' }}</div>
+      {% endif %}
+      <div class="row" style="margin-top:12px">
+        <a href="/job/{{ o.job_id }}" class="muted" style="font-size:12.5px">ver job</a>
+        <a class="btnlink" href="/job/{{ o.job_id }}/download" style="padding:7px 14px;font-size:12px"><svg class="icon icon-sm"><use href="#ic-download"/></svg>baixar</a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state" style="grid-column:1/-1">
+    <svg class="icon"><use href="#ic-clock"/></svg>
+    <p>Nenhum vídeo composto ainda.</p>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip"><svg class="icon"><use href="#ic-layers"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Modo 2</span>
+        <h2>Remodelar</h2>
+      </div>
+    </div>
+  </div>
+  <p class="muted">
+    Reaproveita reels de referência já baixados (com roteiro próprio escrito por fora).
+    Pra cada um: confira/edite o roteiro, envie o avatar HeyGen gerado a partir dele, e componha —
+    o sistema cobre a legenda original do reel e sobrepõe o avatar + legenda novos
+    (<code>pipeline_remoto.py</code>, modo <code>remodel</code>).
+  </p>
+  {% if not map_exists %}
+  <p class="faint" style="margin-top:10px">
+    Sem <code>MAPA_VIDEOS_ROTEIROS.txt</code> ainda em <code>remodel_sources/</code> — os roteiros abaixo ficam em branco até
+    o mapa chegar (ou cole manualmente na tela de cada reel, funciona do mesmo jeito).
+  </p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip blue"><svg class="icon"><use href="#ic-upload"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Upload</span>
+        <h2>Enviar reel de referência (bg)</h2>
+      </div>
+    </div>
+  </div>
+  <p class="muted">Suba aqui os vídeos de fundo (os reels baixados) direto pela dashboard — não precisa de scp.</p>
+  <form id="form-bg" style="margin-top:14px">
+    <input type="file" id="bg_file" name="bg" accept="video/*" required>
+    <div class="row" style="margin-top:12px">
+      <button type="submit"><svg class="icon"><use href="#ic-upload"/></svg>Enviar reel</button>
+      <span id="bg-msg" class="muted"></span>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip"><svg class="icon"><use href="#ic-film"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">{{ jobs|length }} slot{{ 's' if jobs|length != 1 else '' }}</span>
+        <h2>Reels</h2>
+      </div>
+    </div>
+  </div>
+  <div class="joblist">
+    {% for j in jobs %}
+    <a href="/job/{{ j.id }}">
+      <strong>{{ j.slot_label }}</strong>
+      <div class="badges">
+        <span class="badge" data-status="{{ 'ok' if j.render_status=='pronto' else ('err' if j.render_status=='erro' else ('pending' if j.render_status=='aguardando' else 'busy')) }}">
+          <span class="dot"></span>{{ j.render_status }}
+        </span>
+        <span class="badge" data-status="{{ 'ok' if j.roteiro else 'warn' }}">
+          {{ 'roteiro ok' if j.roteiro else 'sem roteiro' }}
+        </span>
+        <span class="badge" data-status="{{ 'ok' if j.avatar_video else 'pending' }}">
+          {{ 'avatar ok' if j.avatar_video else 'sem avatar' }}
+        </span>
+      </div>
+      <div class="meta">{{ j.created_at }}</div>
+    </a>
+    {% else %}
+    <div class="empty-state">
+      <svg class="icon"><use href="#ic-layers"/></svg>
+      <p>Nenhum reel de referência ainda. Envie um vídeo acima pra criar o primeiro slot.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.getElementById('form-bg').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('bg_file');
+  if (!fileInput.files[0]) return;
+  const btn = e.target.querySelector('button');
+  const msg = document.getElementById('bg-msg');
+  const original = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Enviando...';
+  const fd = new FormData();
+  fd.append('bg', fileInput.files[0]);
+  try {
+    const resp = await fetch('/api/remodel/upload_bg', {method: 'POST', body: fd});
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+    msg.textContent = 'enviado: ' + data.filename;
+    setTimeout(() => window.location.reload(), 800);
+  } catch (err) {
+    msg.textContent = 'erro: ' + err.message;
+    btn.disabled = false; btn.innerHTML = original;
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="/" class="back-link"><svg class="icon icon-sm"><use href="#ic-chevron-left"/></svg>voltar</a>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip"><svg class="icon"><use href="#ic-github"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Modo 1 · Gerar novo</span>
+        <h2>{{ job.repo_info.full_name if job.repo_info else job.repo_url }}</h2>
+      </div>
+    </div>
+  </div>
+  <p class="muted">{{ job.repo_info.description if job.repo_info else '' }}</p>
+  <p><a href="{{ job.repo_info.html_url if job.repo_info else job.repo_url }}" target="_blank" class="muted"><svg class="icon icon-sm"><use href="#ic-link"/></svg> {{ job.repo_info.html_url if job.repo_info else job.repo_url }}</a></p>
+</div>
+
+<div class="card">
+  <div class="wizard" id="wizard">
+    <button type="button" class="wizard-step" data-phase="analise"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-search"/></svg></span><span class="label">Análise</span></button>
+    <button type="button" class="wizard-step" data-phase="roteiro"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-edit"/></svg></span><span class="label">Roteiro</span></button>
+    <button type="button" class="wizard-step" data-phase="captura"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-film"/></svg></span><span class="label">Captura de tela</span></button>
+    <button type="button" class="wizard-step" data-phase="avatar"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-user"/></svg></span><span class="label">Avatar</span></button>
+    <button type="button" class="wizard-step" data-phase="cores"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-palette"/></svg></span><span class="label">Cores</span></button>
+    <button type="button" class="wizard-step" data-phase="musica"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-music"/></svg></span><span class="label">Música &amp; render</span></button>
+    <button type="button" class="wizard-step" data-phase="resultado"><span class="line"></span><span class="circle"><svg class="icon"><use href="#ic-download"/></svg></span><span class="label">Resultado</span></button>
+  </div>
+
+  <!-- FASE 0: ANALISE DO REPOSITORIO -->
+  <section class="phase-screen" data-phase="analise">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-search"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 1 de 6</span>
+          <h2>Análise do repositório</h2>
+        </div>
+      </div>
+    </div>
+    <p class="muted">É isso que o roteiro vai explicar pro público — confira se bate antes de seguir.</p>
+    <p style="margin-top:14px; font-size:15px; line-height:1.6">{{ job.repo_info.description if job.repo_info and job.repo_info.description else 'Sem descrição oficial no GitHub — o roteiro vai se basear só no README.' }}</p>
+
+    <div class="statgrid">
+      <div class="statchip">
+        <span class="icon-chip amber"><svg class="icon"><use href="#ic-star"/></svg></span>
+        <div><div class="val">{{ '{:,}'.format(job.repo_info.stars).replace(',', '.') if job.repo_info and job.repo_info.stars is not none else '—' }}</div><div class="lbl">Estrelas</div></div>
+      </div>
+      <div class="statchip">
+        <span class="icon-chip blue"><svg class="icon"><use href="#ic-code"/></svg></span>
+        <div><div class="val">{{ job.repo_info.language if job.repo_info and job.repo_info.language else '—' }}</div><div class="lbl">Linguagem</div></div>
+      </div>
+      <div class="statchip">
+        <span class="icon-chip"><svg class="icon"><use href="#ic-scale"/></svg></span>
+        <div><div class="val">{{ job.repo_info.license if job.repo_info and job.repo_info.license else '—' }}</div><div class="lbl">Licença</div></div>
+      </div>
+      <div class="statchip">
+        <span class="icon-chip"><svg class="icon"><use href="#ic-github"/></svg></span>
+        <div><div class="val">{{ job.repo_info.owner if job.repo_info else '—' }}</div><div class="lbl">Autor / org</div></div>
+      </div>
+    </div>
+
+    {% if job.repo_info and job.repo_info.topics %}
+    <div class="row" style="margin-top:16px; gap:6px">
+      {% for t in job.repo_info.topics[:8] %}
+      <span class="badge" data-status="pending">{{ t }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="phase-nav">
+      <span></span>
+      <button type="button" class="secondary next-phase" data-next="roteiro">Próximo: roteiro<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 1: ROTEIRO -->
+  <section class="phase-screen" data-phase="roteiro">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-edit"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 2 de 6</span>
+          <h2>Roteiro (PT-BR)</h2>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <span id="timer-roteiro" class="timer" style="display:none"><svg class="icon"><use href="#ic-clock"/></svg><span class="timer-value">0:00</span></span>
+        <span id="badge-script" class="badge" data-status="pending"></span>
+      </div>
+    </div>
+    <p class="muted" id="roteiro-origem"></p>
+    <div class="row" style="margin-bottom:14px">
+      <div style="flex:1; min-width:160px">
+        <label for="roteiro_idioma">Idioma</label>
+        <select id="roteiro_idioma">
+          <option value="pt">Português (PT-BR)</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:160px">
+        <label for="roteiro_engine">Motor</label>
+        <select id="roteiro_engine">
+          <option value="gemini">Gemini</option>
+          <option value="claude">Claude</option>
+        </select>
+      </div>
+      <button type="button" id="regen-roteiro" class="secondary"><svg class="icon"><use href="#ic-sparkle"/></svg>Gerar roteiro</button>
+    </div>
+    <textarea id="roteiro" placeholder="O roteiro gerado a partir do README do repositório aparece aqui — edite à vontade antes de gravar a narração."></textarea>
+    <p class="faint" style="margin-top:8px">Escolha idioma e motor e clique em "Gerar roteiro" pra gerar de novo, ou edite o texto direto aqui mesmo.</p>
+    <div class="row" style="margin-top:12px">
+      <button id="save-roteiro"><svg class="icon"><use href="#ic-save"/></svg>Salvar edição</button>
+      <span id="save-ok" class="muted"></span>
+    </div>
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="analise"><svg class="icon"><use href="#ic-chevron-left"/></svg>Análise</button>
+      <button type="button" class="secondary next-phase" data-next="captura">Próximo: captura de tela<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 2: CAPTURA DE TELA -->
+  <section class="phase-screen" data-phase="captura">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-film"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 3 de 6</span>
+          <h2>Gravação de tela do repositório</h2>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <span id="timer-captura" class="timer" style="display:none"><svg class="icon"><use href="#ic-clock"/></svg><span class="timer-value">0:00</span></span>
+        <span id="badge-capture" class="badge" data-status="pending"></span>
+      </div>
+    </div>
+    <div id="bg-preview"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="regen-capture" class="secondary"><svg class="icon"><use href="#ic-film"/></svg>Gravar de novo</button>
+    </div>
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="roteiro"><svg class="icon"><use href="#ic-chevron-left"/></svg>Roteiro</button>
+      <button type="button" class="secondary next-phase" data-next="avatar">Próximo: avatar<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 3: AVATAR -->
+  <section class="phase-screen" data-phase="avatar">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-user"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 4 de 6</span>
+          <h2>Avatar (HeyGen)</h2>
+        </div>
+      </div>
+      <span id="badge-avatar" class="badge" data-status="pending"></span>
+    </div>
+    <p class="muted">Copie o roteiro da etapa 2, cole no HeyGen, gere o vídeo com seu avatar clonado e envie o resultado aqui.</p>
+    <form id="form-avatar" style="margin-top:14px">
+      <label for="avatar_file"><svg class="icon icon-sm"><use href="#ic-upload"/></svg>Vídeo do avatar</label>
+      <input type="file" id="avatar_file" name="avatar" accept="video/*" required>
+      <button type="submit" style="margin-top:12px"><svg class="icon"><use href="#ic-upload"/></svg>Enviar avatar</button>
+    </form>
+    <div id="avatar-preview" style="margin-top:14px"></div>
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="captura"><svg class="icon"><use href="#ic-chevron-left"/></svg>Captura de tela</button>
+      <button type="button" class="secondary next-phase" data-next="cores">Próximo: cores &amp; render<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 4: CORES & COMPOSIÇÃO -->
+  <section class="phase-screen" data-phase="cores">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-palette"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 5 de 7</span>
+          <h2>Cores</h2>
+        </div>
+      </div>
+    </div>
+    <p class="muted">Escolha a paleta antes de compor. Trocar cor e compor de novo é rápido — a transcrição e a detecção de rosto ficam em cache.</p>
+
+    <div class="grid2" style="margin-top:16px">
+      <div class="card-flat">
+        <label>Anel do avatar (gradiente)</label>
+        <div class="row">
+          <input type="color" id="ring1" value="{{ default_ring[0] }}">
+          <input type="color" id="ring2" value="{{ default_ring[1] }}">
+        </div>
+        <div class="swatch" id="swatch-ring"></div>
+      </div>
+      <div class="card-flat">
+        <label>Borda da caixa do avatar (gradiente)</label>
+        <div class="row">
+          <input type="color" id="border1" value="{{ default_border[0] }}">
+          <input type="color" id="border2" value="{{ default_border[1] }}">
+        </div>
+        <div class="swatch" id="swatch-border"></div>
+        <p class="faint" style="margin-top:8px">Essa é a cor base — a animação de hue-rotate continua rodando por cima na composição final.</p>
+      </div>
+      <div class="card-flat">
+        <label>Fundo em tela cheia (gradiente)</label>
+        <div class="row">
+          <input type="color" id="bg1" value="{{ default_bg[0] }}">
+          <input type="color" id="bg2" value="{{ default_bg[1] }}">
+        </div>
+        <div class="swatch" id="swatch-bg"></div>
+      </div>
+      <div class="card-flat">
+        <label>Cor de destaque da legenda</label>
+        <input type="color" id="caption_color" value="{{ default_caption }}" style="width:100%">
+        <div class="swatch-caption" id="swatch-caption" style="color:{{ default_caption }}">Exemplo de legenda karaokê</div>
+      </div>
+    </div>
+
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="avatar"><svg class="icon"><use href="#ic-chevron-left"/></svg>Avatar</button>
+      <button type="button" class="secondary next-phase" data-next="musica">Próximo: música &amp; render<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 5: MUSICA DE FUNDO & COMPOSICAO -->
+  <section class="phase-screen" data-phase="musica">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-music"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 6 de 7</span>
+          <h2>Música de fundo (opcional)</h2>
+        </div>
+      </div>
+      <div class="row" style="gap:8px">
+        <span id="badge-music" class="badge" data-status="pending"></span>
+        <span id="badge-render" class="badge" data-status="pending"></span>
+      </div>
+    </div>
+    <p class="muted">Opcional: sobe um MP3 pra tocar bem baixinho (ambiência) atrás do vídeo. Se não subir nada, o vídeo é composto sem música, igual antes.</p>
+    <form id="form-music" style="margin-top:14px">
+      <label for="music_file"><svg class="icon icon-sm"><use href="#ic-upload"/></svg>Arquivo MP3</label>
+      <input type="file" id="music_file" name="musica" accept=".mp3,audio/mpeg">
+      <div class="row" style="margin-top:12px; gap:16px; align-items:center">
+        <label style="display:flex; align-items:center; gap:6px; font-weight:400">
+          <input type="radio" name="music_mode" id="music_mode_auto" value="auto" checked style="width:auto">
+          Trecho aleatório
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; font-weight:400">
+          <input type="radio" name="music_mode" id="music_mode_manual" value="manual" style="width:auto">
+          Escolher segundo de início
+        </label>
+        <input type="number" id="music_start" min="0" step="1" placeholder="segundos" style="width:120px" disabled>
+      </div>
+      <button type="submit" style="margin-top:12px"><svg class="icon"><use href="#ic-upload"/></svg>Enviar música</button>
+    </form>
+    <div id="music-preview" style="margin-top:14px"></div>
+
+    <div class="row" style="margin-top:22px">
+      <button id="btn-compor"><svg class="icon"><use href="#ic-play"/></svg>Compor vídeo</button>
+      <span id="compor-msg" class="muted"></span>
+    </div>
+    <div class="row" style="margin-top:10px; gap:8px">
+      <span id="timer-transcricao" class="timer" style="display:none"><svg class="icon"><use href="#ic-clock"/></svg><span class="timer-label">Transcrição</span><span class="timer-value">0:00</span></span>
+      <span id="timer-composicao" class="timer" style="display:none"><svg class="icon"><use href="#ic-clock"/></svg><span class="timer-label">Composição</span><span class="timer-value">0:00</span></span>
+    </div>
+    <div id="render-step-label" class="muted" style="margin-top:10px"></div>
+
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="cores"><svg class="icon"><use href="#ic-chevron-left"/></svg>Cores</button>
+      <button type="button" class="secondary next-phase" data-next="resultado">Ver resultado<svg class="icon"><use href="#ic-chevron-right"/></svg></button>
+    </div>
+  </section>
+
+  <!-- FASE 6: RESULTADO -->
+  <section class="phase-screen" data-phase="resultado">
+    <div class="section-head">
+      <div class="title">
+        <div class="icon-chip"><svg class="icon"><use href="#ic-download"/></svg></div>
+        <div class="title-text">
+          <span class="eyebrow">Etapa 7 de 7</span>
+          <h2>Resultado e log</h2>
+        </div>
+      </div>
+      <span id="timer-composicao2" class="timer" style="display:none"><svg class="icon"><use href="#ic-clock"/></svg><span class="timer-label">Composição</span><span class="timer-value">0:00</span></span>
+    </div>
+    <div id="download-area"></div>
+
+    <div id="legenda-dm-block" style="display:none; margin-top:20px">
+      <h3 style="display:flex; align-items:center; gap:8px"><svg class="icon icon-sm"><use href="#ic-video"/></svg>Legenda do post + DM automática</h3>
+      <textarea id="legenda-dm-text" readonly rows="20" style="width:100%; font-family:monospace; font-size:13px; white-space:pre-wrap;"></textarea>
+      <div class="row" style="margin-top:8px; gap:8px">
+        <button type="button" class="secondary" id="copy-legenda-btn"><svg class="icon"><use href="#ic-check"/></svg>Copiar texto</button>
+        <a class="btnlink" id="legenda-dm-download-link" href="#"><svg class="icon"><use href="#ic-download"/></svg>Baixar .txt</a>
+      </div>
+    </div>
+    <p id="legenda-dm-status" class="muted" style="margin-top:20px"></p>
+
+    <h3 style="margin-top:20px; display:flex; align-items:center; gap:8px"><svg class="icon icon-sm"><use href="#ic-video"/></svg>Log em tempo real</h3>
+    <pre class="log rail-scroll" id="log"></pre>
+    <div class="phase-nav">
+      <button type="button" class="ghost prev-phase" data-prev="musica"><svg class="icon"><use href="#ic-chevron-left"/></svg>Música &amp; render</button>
+      <span></span>
+    </div>
+  </section>
+</div>
+
+<script>
+const jobId = "{{ job.id }}";
+let roteiroTouched = false;
+document.getElementById('roteiro').addEventListener('input', () => roteiroTouched = true);
+let idiomaTouched = false, engineTouched = false;
+document.getElementById('roteiro_idioma').addEventListener('change', () => idiomaTouched = true);
+document.getElementById('roteiro_engine').addEventListener('change', () => engineTouched = true);
+
+/* ---------------- wizard navigation ---------------- */
+const PHASES = ["analise", "roteiro", "captura", "avatar", "cores", "musica", "resultado"];
+
+function showPhase(name) {
+  if (!PHASES.includes(name)) return;
+  document.querySelectorAll('.phase-screen').forEach(el => {
+    el.classList.toggle('visible', el.dataset.phase === name);
+  });
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    el.classList.toggle('active', el.dataset.phase === name);
+  });
+  window.scrollTo({top: document.querySelector('.wizard').getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth'});
+}
+
+document.querySelectorAll('.wizard-step').forEach(el => {
+  el.addEventListener('click', () => showPhase(el.dataset.phase));
+});
+document.querySelectorAll('.next-phase').forEach(el => {
+  el.addEventListener('click', () => showPhase(el.dataset.next));
+});
+document.querySelectorAll('.prev-phase').forEach(el => {
+  el.addEventListener('click', () => showPhase(el.dataset.prev));
+});
+showPhase('analise');
+
+function abrirNoEditor(jobId) {
+  // Baixa o projeto do FreeCut (.freecut.zip, já com avatar/legenda/música
+  // posicionados igual ao vídeo composto) e abre o editor numa aba nova.
+  // O FreeCut roda self-hosted na porta 8100; lá o usuário clica em
+  // Importar e escolhe o arquivo baixado (o navegador exige esse passo
+  // manual por segurança — não dá pra pré-carregar sozinho).
+  const a = document.createElement('a');
+  a.href = `/job/${jobId}/freecut_bundle`;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  const freecutUrl = `${window.location.protocol}//${window.location.hostname}:8100/projects`;
+  window.open(freecutUrl, '_blank');
+}
+
+function badge(el, status, mapOk, mapErr) {
+  el.dataset.status = mapOk.includes(status) ? 'ok' : (mapErr.includes(status) ? 'err' : (status === 'aguardando' || !status ? 'pending' : 'busy'));
+  el.innerHTML = status ? `<span class="dot"></span>${status}` : '';
+}
+
+const STEP_ORDER = ["analise", "roteiro", "captura", "avatar", "cores", "musica", "resultado"];
+
+function updateWizardStates(j) {
+  const done = new Set(['analise']);
+  const err = new Set();
+
+  if (j.script_status === 'pronto') done.add('roteiro');
+  else if (j.script_status === 'erro') err.add('roteiro');
+
+  if (j.capture_status === 'pronto') done.add('captura');
+  else if (j.capture_status === 'erro') err.add('captura');
+
+  if (j.avatar_video) done.add('avatar');
+
+  if (j.render_status === 'erro') err.add('musica');
+  else if (j.render_status === 'pronto') { done.add('cores'); done.add('musica'); done.add('resultado'); }
+
+  STEP_ORDER.forEach(s => {
+    const el = document.querySelector(`.wizard-step[data-phase="${s}"]`);
+    el.classList.remove('done', 'err');
+    if (err.has(s)) el.classList.add('err');
+    else if (done.has(s)) el.classList.add('done');
+  });
+}
+
+/* ---------------- timers em tempo real ---------------- */
+function fmtDuration(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const timers = {}; // name -> {startMs, endMs|null}
+
+function setTimer(name, startIso, endIso) {
+  const ids = name === 'composicao' ? ['timer-composicao', 'timer-composicao2'] : ['timer-' + name];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!startIso) { el.style.display = 'none'; delete timers[id]; return; }
+    el.style.display = 'inline-flex';
+    timers[id] = {
+      startMs: new Date(startIso).getTime(),
+      endMs: endIso ? new Date(endIso).getTime() : null,
+    };
+  });
+}
+
+function tickTimers() {
+  const now = Date.now();
+  Object.keys(timers).forEach(id => {
+    const t = timers[id];
+    const el = document.getElementById(id);
+    if (!el) { delete timers[id]; return; }
+    const valueEl = el.querySelector('.timer-value');
+    const endpoint = t.endMs || now;
+    valueEl.textContent = fmtDuration((endpoint - t.startMs) / 1000);
+    el.classList.toggle('done', !!t.endMs);
+  });
+}
+setInterval(tickTimers, 1000);
+
+/* ---------------- media (evita re-renderizar <video> a cada poll = bug do preview travando/reiniciando) ---------------- */
+const mediaCache = {};
+function setMediaOnce(containerId, cacheKey, html) {
+  if (mediaCache[containerId] === cacheKey) return;
+  mediaCache[containerId] = cacheKey;
+  document.getElementById(containerId).innerHTML = html;
+}
+
+async function poll() {
+  const resp = await fetch(`/api/jobs/${jobId}`);
+  const j = await resp.json();
+
+  badge(document.getElementById('badge-script'), j.script_status, ['pronto'], ['erro']);
+  badge(document.getElementById('badge-capture'), j.capture_status, ['pronto'], ['erro']);
+  badge(document.getElementById('badge-avatar'), j.avatar_video ? 'enviado' : 'aguardando', ['enviado'], []);
+  badge(document.getElementById('badge-music'), j.music_path ? 'enviada' : 'sem música', ['enviada'], []);
+  badge(document.getElementById('badge-render'), j.render_status, ['pronto'], ['erro']);
+  updateWizardStates(j);
+
+  setTimer('roteiro', j.script_started_at, j.script_finished_at);
+  setTimer('captura', j.capture_started_at, j.capture_finished_at);
+
+  const stepStarted = j.step_started_at || {};
+  const stepFinished = j.step_finished_at || {};
+  setTimer('transcricao', stepStarted['transcrevendo'], stepFinished['transcrevendo']);
+  setTimer('composicao', stepStarted['compondo'], stepFinished['compondo']);
+  tickTimers();
+
+  if (j.roteiro && !roteiroTouched) {
+    document.getElementById('roteiro').value = j.roteiro;
+  }
+  document.getElementById('roteiro-origem').textContent = j.roteiro_origem ? ('origem: ' + j.roteiro_origem) : '';
+  if (j.roteiro_idioma && !idiomaTouched) document.getElementById('roteiro_idioma').value = j.roteiro_idioma;
+  if (j.roteiro_engine && !engineTouched) document.getElementById('roteiro_engine').value = j.roteiro_engine;
+  const regenBtn = document.getElementById('regen-roteiro');
+  if (j.script_status === 'gerando') { regenBtn.disabled = true; regenBtn.innerHTML = 'Gerando...'; }
+  else { regenBtn.disabled = false; regenBtn.innerHTML = '<svg class="icon"><use href="#ic-sparkle"/></svg>Gerar roteiro'; }
+
+  const bgKey = j.bg_video ? `bg:${j.bg_version || 0}` : 'nobg';
+  setMediaOnce('bg-preview', bgKey, j.bg_video
+    ? `<video controls preload="metadata" src="/job/${jobId}/preview/bg?v=${j.bg_version || 0}"></video>`
+    : `<p class="muted">${j.capture_status}...</p>`);
+
+  if (j.avatar_video) {
+    setMediaOnce('avatar-preview', `av:${j.avatar_version || 0}`,
+      `<video controls preload="metadata" src="/job/${jobId}/preview/avatar?v=${j.avatar_version || 0}"></video>`);
+  }
+
+  const musicKey = j.music_path ? `mus:${j.music_path}:${j.music_start}` : 'nomus';
+  setMediaOnce('music-preview', musicKey, j.music_path
+    ? `<p class="muted"><svg class="icon icon-sm"><use href="#ic-check"/></svg> música enviada${j.music_start != null ? ' — início manual: ' + j.music_start + 's' : ' — trecho aleatório a cada composição'}</p>`
+    : `<p class="muted">nenhuma música enviada ainda (opcional).</p>`);
+
+  document.getElementById('render-step-label').textContent = j.render_step ? ('etapa atual: ' + j.render_step) : '';
+
+  const outKey = j.output_video ? `out:${j.output_version || 0}` : 'noout';
+  setMediaOnce('download-area', outKey, j.output_video
+    ? `<video controls preload="metadata" src="/job/${jobId}/preview/output?v=${j.output_version || 0}"></video><br><br>
+       <div style="display:flex;gap:12px;flex-wrap:wrap;">
+         <a class="btnlink" href="/job/${jobId}/download"><svg class="icon"><use href="#ic-download"/></svg>Baixar vídeo pronto</a>
+         <a class="btnlink" href="#" onclick="abrirNoEditor('${jobId}'); return false;"><svg class="icon"><use href="#ic-download"/></svg>Abrir no editor</a>
+       </div>
+       <p class="muted" style="margin-top:8px;font-size:.85em;">"Abrir no editor" baixa o projeto do FreeCut (.freecut.zip — avatar, legenda e música já na posição do vídeo final) e abre o editor numa aba nova. Lá, clique em Importar e escolha o arquivo baixado.</p>`
+    : `<div class="empty-state"><svg class="icon"><use href="#ic-video"/></svg><p>O vídeo final aparece aqui assim que a composição terminar.</p></div>`);
+
+  if (j.legenda_dm) {
+    document.getElementById('legenda-dm-block').style.display = '';
+    document.getElementById('legenda-dm-status').textContent = '';
+    const ta = document.getElementById('legenda-dm-text');
+    if (ta.value !== j.legenda_dm) ta.value = j.legenda_dm;
+    document.getElementById('legenda-dm-download-link').href = `/job/${jobId}/legenda_dm`;
+  } else {
+    document.getElementById('legenda-dm-block').style.display = 'none';
+    document.getElementById('legenda-dm-status').textContent = j.legenda_dm_status === 'gerando'
+      ? 'Gerando legenda do post + DM automática...'
+      : (j.legenda_dm_status === 'erro' ? 'Erro ao gerar legenda/DM (veja o log).' : (j.render_status === 'pronto' ? '' : 'A legenda e o fluxo de DM aparecem aqui automaticamente assim que o vídeo terminar de compor.'));
+  }
+
+  document.getElementById('log').textContent = (j.log || []).join('\n');
+  const logEl = document.getElementById('log');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+document.getElementById('copy-legenda-btn').addEventListener('click', async () => {
+  const ta = document.getElementById('legenda-dm-text');
+  ta.select();
+  try { await navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); }
+  const btn = document.getElementById('copy-legenda-btn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<svg class="icon"><use href="#ic-check"/></svg>Copiado!';
+  setTimeout(() => { btn.innerHTML = orig; }, 1500);
+});
+poll();
+setInterval(poll, 2500);
+
+document.getElementById('save-roteiro').addEventListener('click', async () => {
+  await fetch(`/api/jobs/${jobId}/roteiro`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({roteiro: document.getElementById('roteiro').value})
+  });
+  roteiroTouched = false;
+  document.getElementById('save-ok').innerHTML = '<svg class="icon icon-sm"><use href="#ic-check"/></svg> salvo!';
+  setTimeout(() => document.getElementById('save-ok').textContent = '', 2000);
+});
+
+document.getElementById('regen-roteiro').addEventListener('click', async () => {
+  const btn = document.getElementById('regen-roteiro');
+  btn.disabled = true; btn.innerHTML = 'Gerando...';
+  roteiroTouched = false;
+  try {
+    const resp = await fetch(`/api/jobs/${jobId}/gerar_roteiro`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        idioma: document.getElementById('roteiro_idioma').value,
+        engine: document.getElementById('roteiro_engine').value,
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+    poll();
+  } catch (err) {
+    alert('erro: ' + err.message);
+    btn.disabled = false; btn.innerHTML = '<svg class="icon"><use href="#ic-sparkle"/></svg>Gerar roteiro';
+  }
+});
+
+document.getElementById('regen-capture').addEventListener('click', async () => {
+  await fetch(`/api/jobs/${jobId}/regravar_tela`, {method: 'POST'});
+  poll();
+});
+
+document.getElementById('form-avatar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('avatar_file');
+  if (!fileInput.files[0]) return;
+  const btn = e.target.querySelector('button');
+  const original = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Enviando...';
+  const fd = new FormData();
+  fd.append('avatar', fileInput.files[0]);
+  try {
+    const resp = await fetch(`/api/jobs/${jobId}/avatar`, {method: 'POST', body: fd});
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+    btn.innerHTML = '<svg class="icon"><use href="#ic-check"/></svg>Enviado!';
+    poll();
+  } catch (err) {
+    alert('erro: ' + err.message);
+    btn.disabled = false; btn.innerHTML = original;
+  }
+});
+
+document.getElementById('music_mode_manual').addEventListener('change', () => {
+  document.getElementById('music_start').disabled = false;
+});
+document.getElementById('music_mode_auto').addEventListener('change', () => {
+  document.getElementById('music_start').disabled = true;
+});
+
+document.getElementById('form-music').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('music_file');
+  if (!fileInput.files[0]) { alert('escolha um arquivo mp3 primeiro'); return; }
+  const btn = e.target.querySelector('button');
+  const original = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Enviando...';
+  const fd = new FormData();
+  fd.append('musica', fileInput.files[0]);
+  const manual = document.getElementById('music_mode_manual').checked;
+  const startVal = document.getElementById('music_start').value;
+  if (manual && startVal !== '') fd.append('music_start', startVal);
+  try {
+    const resp = await fetch(`/api/jobs/${jobId}/musica`, {method: 'POST', body: fd});
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+    btn.innerHTML = '<svg class="icon"><use href="#ic-check"/></svg>Enviada!';
+    poll();
+  } catch (err) {
+    alert('erro: ' + err.message);
+    btn.disabled = false; btn.innerHTML = original;
+  }
+});
+
+/* ---------------- preview ao vivo das cores (swatches CSS, mesma diagonal do gerador real) ---------------- */
+function updateSwatches() {
+  const ring1 = document.getElementById('ring1').value, ring2 = document.getElementById('ring2').value;
+  const border1 = document.getElementById('border1').value, border2 = document.getElementById('border2').value;
+  const bg1 = document.getElementById('bg1').value, bg2 = document.getElementById('bg2').value;
+  const cap = document.getElementById('caption_color').value;
+  document.getElementById('swatch-ring').style.background = `linear-gradient(135deg, ${ring1}, ${ring2})`;
+  document.getElementById('swatch-border').style.background = `linear-gradient(135deg, ${border1}, ${border2})`;
+  document.getElementById('swatch-bg').style.background = `linear-gradient(135deg, ${bg1}, ${bg2})`;
+  const capEl = document.getElementById('swatch-caption');
+  capEl.style.color = cap;
+}
+['ring1', 'ring2', 'border1', 'border2', 'bg1', 'bg2', 'caption_color'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateSwatches);
+});
+updateSwatches();
+
+document.getElementById('btn-compor').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-compor');
+  const msg = document.getElementById('compor-msg');
+  btn.disabled = true;
+  msg.textContent = 'iniciando...';
+  const payload = {
+    ring_colors: [document.getElementById('ring1').value, document.getElementById('ring2').value],
+    border_colors: [document.getElementById('border1').value, document.getElementById('border2').value],
+    bg_colors: [document.getElementById('bg1').value, document.getElementById('bg2').value],
+    caption_color: document.getElementById('caption_color').value,
+  };
+  try {
+    const resp = await fetch(`/api/jobs/${jobId}/compor`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+    msg.textContent = 'compondo, acompanhe o log na etapa de resultado...';
+    showPhase('resultado');
+    poll();
+  } catch (err) {
+    msg.textContent = 'erro: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

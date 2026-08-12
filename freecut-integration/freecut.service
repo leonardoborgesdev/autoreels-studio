@@ -1,0 +1,14 @@
+[Unit]
+Description=FreeCut - editor de video no navegador (self-hosted)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/freecut
+ExecStart=/usr/bin/npx vite preview --host 0.0.0.0 --port 8100 --strictPort
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

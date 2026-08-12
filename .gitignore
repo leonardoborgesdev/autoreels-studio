@@ -1,0 +1,18 @@
+# dados de execução (jobs, mídia gerada, caches) — não fazem parte do código
+dashboard/jobs/
+dashboard/__pycache__/
+dashboard/*.pyc
+dashboard/_backup_*/
+dashboard/version_counters.json
+
+# segredos locais gerados em runtime — nunca comitar
+dashboard/auth_secret.txt
+.env
+*.env
+
+# vídeos de referência do modo Remodelar (arquivos grandes, não fazem parte do código)
+remodel_sources/
+
+__pycache__/
+*.pyc
+.DS_Store
