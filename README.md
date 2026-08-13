@@ -111,6 +111,52 @@ O botão "Abrir no editor" da tela de resultado depende de uma instância própr
 - O projeto gerado pro FreeCut reproduz a posição exata do círculo do avatar, da caixa grande usada nos cutaways, da moldura e da música — mas a legenda vira blocos de texto por trecho (mesmo agrupamento e tempo do `.ass` original), sem o destaque palavra-a-palavra em cores alternadas do karaokê original. Reproduzir isso exigiria mapear a API de animação por-caractere do FreeCut, fora do escopo desta integração.
 - A importação do projeto no FreeCut exige 2 cliques manuais do usuário (selecionar o arquivo `.freecut.zip` e escolher uma pasta de destino) — é uma exigência de segurança do navegador (File System Access API) e não pode ser pulada por automação.
 
+## Debugging notes: captura de tela travando/pulando ("trava e desce tudo de uma vez")
+
+Esse bug consumiu ~10 rodadas de correção (12-13/08/2026) até a causa raiz de verdade ser encontrada. Documentado aqui pra nunca mais perder esse contexto.
+
+**Sintoma**: em repositórios com README pesado (imagens grandes, avatares de contribuidor), a gravação de tela ficava parada por um bom tempo e depois "descia tudo de uma vez" — ou, em casos piores, ficava rolando por minutos sem nunca terminar.
+
+**Causa raiz real**: o Chromium aplica um throttling interno de timers (`setTimeout`/`setInterval`, e antes disso também `requestAnimationFrame`) em páginas que ele classifica como "em segundo plano" — o que uma página headless do Playwright sempre é, do ponto de vista do agendador interno do Chromium, **mesmo que a própria página nunca tenha trocado de aba de verdade**. Um override de `document.hidden`/`document.visibilityState` via JavaScript (tentado numa das rodadas) **não resolve** isso, porque essa decisão de throttling acontece num nível de agendamento mais interno do navegador, abaixo do que a JS da página consegue enxergar ou controlar.
+
+O padrão observado batia exatamente com isso: a rolagem avançava normal por um tempo (tipicamente ~1-2 minutos), depois praticamente congelava, só voltando a se mexer esporadicamente até estourar qualquer teto de tempo definido.
+
+**Diagnóstico que confirmou** (e descartou hipóteses erradas no caminho — inclusive "altura da página crescendo dinamicamente", verificado e refutado com um teste direto de `document.body.scrollHeight` parado por 10s sem nenhuma rolagem, que mostrou o valor **completamente estável**):
+
+```python
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page(viewport={'width':540,'height':960}, device_scale_factor=2)
+    page.goto(URL, wait_until='load', timeout=20000)
+    for i in range(8):
+        print(page.evaluate('document.body.scrollHeight'))
+        time.sleep(1.5)
+```
+
+**Fix definitivo** (em `scroll_capture.py`, na chamada `p.chromium.launch()`):
+
+```python
+browser = p.chromium.launch(
+    headless=True,
+    args=[
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-ipc-flooding-protection",
+    ],
+)
+```
+
+Essas são flags padrão, bem documentadas, usadas justamente em automação/testes headless pra desligar esse comportamento de "economia de energia" do Chromium que não faz sentido nesse contexto. Depois desse fix, capturas que antes travavam por 4+ minutos (batendo em tetos de segurança) passaram a completar em ~80s, sem nenhum salto detectável.
+
+**Camadas de proteção que ficaram no código, mesmo já não sendo a causa raiz** (defesa em profundidade, úteis contra outros tipos de trava real de thread principal — decode de imagem pesada, etc):
+- Espera de `img.decode()` com `loading="eager"` forçado antes de começar a rolagem cronometrada.
+- Passada de "aquecimento" (rola até o fim e volta, silenciosa, fora do vídeo final) pra forçar o layout/pintura de cada trecho da página uma vez antes da gravação de verdade.
+- Rolagem **sem prazo fixo**: em vez de forçar terminar numa duração exata (o que gerava "corrida pra recuperar atraso" = salto visível), rola num ritmo humano constante e deixa levar o tempo real que precisar — a composição final já corta/estica pra bater com a duração real da fala do avatar, então não há necessidade de um tempo de captura exato. Só com um teto de segurança (1.3x a duração alvo) pra nunca rodar indefinidamente.
+- Exportação final em CFR (`-vsync cfr -r 25`, não `-vsync vfr`) — um vídeo de frame rate variável pode reproduzir corretamente quando extraído frame a frame via ffmpeg, mas trava/pula na reprodução real do `<video>` do navegador mesmo com os timestamps tecnicamente corretos.
+- Corte de início preciso por marcador visual (flash magenta full-screen de 700ms, detectado por análise de cor média do frame) em vez de medir tempo de parede em Python, que podia ficar dessincronizado do timeline real do vídeo gravado.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

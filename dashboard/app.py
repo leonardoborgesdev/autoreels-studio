@@ -258,7 +258,7 @@ def do_capture(job_id):
     state["capture_finished_at"] = None
     append_log(state, "Iniciando gravação de tela do repositório...")
     jdir = job_dir(job_id)
-    rc = run_and_log([VENV_PY, SCROLL_CAPTURE, state["repo_info"]["html_url"], jdir, "45"], job_id)
+    rc = run_and_log([VENV_PY, SCROLL_CAPTURE, state["repo_info"]["html_url"], jdir, "60"], job_id)
     state = load_state(job_id)
     out_path = os.path.join(jdir, "captura_final_1080x1920.mp4")
     if rc == 0 and os.path.exists(out_path):
@@ -818,14 +818,19 @@ def download(job_id):
     return send_file(path, as_attachment=True, download_name=name)
 
 
+FREECUT_ORIGIN = "https://editor.automatrixapps99x.win"
+
+
 @app.route("/job/<job_id>/freecut_bundle")
 def freecut_bundle_download(job_id):
     """Gera (ou reaproveita, se ainda válido) o pacote de projeto do FreeCut
     (.freecut.zip) pro vídeo final desse job, com o avatar/legenda/música já
-    posicionados igual ao vídeo composto, e manda pra download. O botão
-    'Abrir no editor' da tela de resultado baixa esse arquivo e abre o
-    FreeCut (self-hosted, porta 8100) numa aba nova; no FreeCut o usuário
-    clica Importar e escolhe esse arquivo."""
+    posicionados igual ao vídeo composto.
+
+    Servido com CORS liberado pra origem do FreeCut (editor.automatrixapps99x.win)
+    porque agora é buscado direto via fetch() pelo próprio FreeCut (autoimport
+    por query param, ver routes/projects/index.tsx) em vez de baixado pro
+    disco do usuário e importado manualmente."""
     state = load_state(job_id)
     if not state or not state.get("output_video"):
         return jsonify({"error": "vídeo final ainda não está pronto"}), 404
@@ -841,7 +846,10 @@ def freecut_bundle_download(job_id):
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": f"falha ao gerar projeto do editor: {e}"}), 500
     name = (state.get("output_name") or "reel") + ".freecut.zip"
-    return send_file(out_path, as_attachment=True, download_name=name)
+    resp = send_file(out_path, as_attachment=True, download_name=name)
+    resp.headers["Access-Control-Allow-Origin"] = FREECUT_ORIGIN
+    resp.headers["Vary"] = "Origin"
+    return resp
 
 
 @app.route("/job/<job_id>/legenda_dm")

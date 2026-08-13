@@ -435,7 +435,7 @@ def build_video(
 [maskbig]format=gray[maskg];
 [facecrop][maskg]alphamerge[facea];
 [3:v]scale={RING_SIZE}:{RING_SIZE}[ringbig];
-[av2]crop=860:1700:{box_x}:{box_y},unsharp=5:5:1.4:5:5:0.7[avatarbox];
+[av2]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,crop=860:1700:{box_x}:{box_y},unsharp=5:5:1.4:5:5:0.7[avatarbox];
 [6:v]hue=h='t*140':s=1.2[spinborder];
 {cover_chain}[{bg_after_cover}][facea]overlay={big_face_x}:{big_face_y}:enable='eq({cuts},0)'[s1];
 [s1][ringbig]overlay={big_ring_x}:{big_ring_y}:enable='eq({cuts},0)'[s2];
@@ -476,7 +476,7 @@ def build_video(
 [av1]crop=600:600:{face_x}:{face_y},scale=283:283:flags=lanczos,unsharp=5:5:1.4:5:5:0.7[facecrop];
 [2:v]format=gray[maskg];
 [facecrop][maskg]alphamerge[facea];
-[av2]crop=860:1700:{box_x}:{box_y},unsharp=5:5:1.4:5:5:0.7[avatarbox];
+[av2]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,crop=860:1700:{box_x}:{box_y},unsharp=5:5:1.4:5:5:0.7[avatarbox];
 [6:v]hue=h='t*140':s=1.2[spinborder];
 [bgraw]tpad=stop_mode=clone:stop_duration=10[bgmain];
 [bgmain][facea]overlay=759:130:enable='eq({cuts},0)'[s1];
