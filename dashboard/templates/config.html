@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Configurações — AutoReels Studio{% endblock %}
+{% block content %}
+<div class="hero">
+  <span class="eyebrow-pill"><svg class="icon icon-sm"><use href="#ic-settings"/></svg>Configurações</span>
+  <h1 class="hero-title">APIs, tokens e status do sistema</h1>
+  <p class="hero-sub">As chaves aqui ficam salvas no servidor e valem pra todos os jobs novos.</p>
+</div>
+
+{% if salvo %}
+<div class="card" style="border-color: var(--accent);">
+  <p style="margin:0;"><svg class="icon icon-sm"><use href="#ic-check"/></svg> Configurações salvas.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip"><svg class="icon"><use href="#ic-sparkle"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Roteiro por IA</span>
+        <h2>Chaves de API</h2>
+      </div>
+    </div>
+  </div>
+  <form method="POST" style="margin-top:16px">
+    <label for="gemini_api_key"><svg class="icon icon-sm"><use href="#ic-link"/></svg>Chave da API do Gemini</label>
+    <input type="text" id="gemini_api_key" name="gemini_api_key" placeholder="{{ gemini_key_masked or 'cole a chave aqui' }}">
+    <p class="muted" style="font-size:.85em; margin-top:4px;">
+      {% if gemini_key_set %}<svg class="icon icon-sm" style="color:var(--accent)"><use href="#ic-check"/></svg> chave ativa ({{ gemini_key_masked }}){% else %}sem chave configurada — jobs com motor Gemini caem no roteiro heurístico{% endif %}
+    </p>
+
+    <label for="github_token" style="margin-top:16px">Token do GitHub (opcional)</label>
+    <input type="text" id="github_token" name="github_token" placeholder="{{ github_token_masked or 'ghp_... (opcional, evita limite de taxa da API pública)' }}">
+    <p class="muted" style="font-size:.85em; margin-top:4px;">Sem token, a leitura de repositórios usa a API pública do GitHub (limite mais baixo de requisições por hora).</p>
+
+    <div class="row" style="margin-top:18px">
+      <button type="submit"><svg class="icon"><use href="#ic-save"/></svg>Salvar</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip blue"><svg class="icon"><use href="#ic-check"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Status</span>
+        <h2>Motores e sistema</h2>
+      </div>
+    </div>
+  </div>
+  <div class="joblist" style="margin-top:12px">
+    <div style="padding:14px 0; border-bottom:1px solid var(--border-soft);">
+      <strong>Gemini</strong>
+      <div class="meta">{{ 'ativo' if gemini_key_set else 'sem chave' }}</div>
+    </div>
+    <div style="padding:14px 0; border-bottom:1px solid var(--border-soft);">
+      <strong>Claude (CLI)</strong>
+      <div class="meta">{{ 'disponível no servidor' if claude_disponivel else 'não encontrado' }}</div>
+    </div>
+    <div style="padding:14px 0;">
+      <strong>Jobs no total</strong>
+      <div class="meta">{{ total_jobs }} jobs · {{ total_outputs }} vídeos compostos</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip amber"><svg class="icon"><use href="#ic-palette"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Aparência</span>
+        <h2>Tema</h2>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:14px; gap:12px;">
+    <button type="button" class="secondary" id="theme-dark" onclick="setTheme('dark')"><svg class="icon icon-sm"><use href="#ic-check"/></svg>Escuro</button>
+    <button type="button" class="secondary" id="theme-light" onclick="setTheme('light')"><svg class="icon icon-sm"><use href="#ic-check"/></svg>Claro</button>
+  </div>
+</div>
+
+<script>
+function setTheme(t) {
+  if (t === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('autoreels-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('autoreels-theme', 'dark');
+  }
+  updateThemeButtons();
+}
+function updateThemeButtons() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.getElementById('theme-dark').style.borderColor = isLight ? '' : 'var(--accent)';
+  document.getElementById('theme-light').style.borderColor = isLight ? 'var(--accent)' : '';
+}
+updateThemeButtons();
+</script>
+{% endblock %}

@@ -3,7 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}GitHub Reels Generator{% endblock %}</title>
+<meta name="description" content="Cole um link (repositório do GitHub ou qualquer site) e gere um reel vertical pronto pra postar: roteiro por IA, captura de tela automática, avatar clonado, legenda karaokê e música de fundo.">
+<meta property="og:title" content="AutoReels Studio">
+<meta property="og:description" content="Cole um link e gere um reel vertical pronto pra postar, com roteiro por IA, captura de tela automática, avatar clonado e legenda karaokê.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0b0e0c">
+<script>
+  (function () {
+    var t = localStorage.getItem('autoreels-theme');
+    if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  })();
+</script>
+<title>{% block title %}AutoReels Studio — reels prontos a partir de um link{% endblock %}</title>
 <style>
   :root {
     --bg: #0b0e0c;
@@ -40,6 +51,34 @@
     --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI",
       ui-sans-serif, system-ui, Roboto, Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  :root[data-theme="light"] {
+    --header-bg: rgba(255, 255, 255, .82);
+    --bg: #f5f7f4;
+    --surface: #ffffff20;
+    --surface-solid: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #eef1ec;
+    --border: #dde3d9;
+    --border-soft: #e6ebe3;
+    --text: #16201a;
+    --text-dim: #56635a;
+    --text-faint: #8a9689;
+    --accent: #1d9a54;
+    --accent-dim: #bfe8d1;
+    --accent-soft: rgba(29, 154, 84, .1);
+    --danger: #d63b3b;
+    --danger-dim: #f6c9c9;
+    --warn: #b8720a;
+    --warn-dim: #f3ddb0;
+    --busy: #a6870a;
+    --busy-dim: #f0e3b0;
+    --accent2: #1861b3;
+    --accent2-dim: #cfe1f7;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.08);
+    --shadow-md: 0 8px 24px -8px rgba(0,0,0,.12);
+    --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.16);
   }
 
   * { box-sizing: border-box; }
@@ -81,7 +120,7 @@
     position: sticky; top: 0; z-index: 40;
     padding: 14px 28px; border-bottom: 1px solid var(--border-soft);
     display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
-    background: rgba(20, 24, 22, .82); backdrop-filter: blur(16px) saturate(160%);
+    background: var(--header-bg, rgba(20, 24, 22, .82)); backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
   }
   header .brand { display: flex; align-items: center; gap: 12px; }
@@ -147,6 +186,75 @@
   button.ghost:hover { color: var(--text); filter: none; }
   button.danger-ghost { background: transparent; color: var(--danger); box-shadow: none; border: 1px solid var(--danger-dim); }
   button:disabled { background: var(--border); color: var(--text-faint); cursor: not-allowed; filter: none; box-shadow: none; transform: none; }
+
+  .mode-grid { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+  .mode-card {
+    flex: 1; min-width: 220px; text-align: left; cursor: pointer;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px;
+    background: var(--surface-raised); color: var(--text);
+    display: flex; flex-direction: column; gap: 10px;
+    font-weight: 400; box-shadow: none; transition: border-color .15s ease, transform .12s ease;
+  }
+  .mode-card:hover { border-color: var(--accent-dim); filter: none; transform: translateY(-2px); }
+  .mode-card:active { transform: scale(.98); }
+  .mode-card.selected { border-color: var(--accent); }
+  .mode-card strong { color: var(--text); font-size: 1.1em; }
+  .mode-card .muted { color: var(--text-dim); font-size: .9em; flex: 1; }
+  a.mode-card { text-decoration: none; }
+  .mode-card-cta {
+    display: inline-flex; align-items: center; gap: 6px; color: var(--accent);
+    font-size: .85em; font-weight: 700; margin-top: 4px;
+    opacity: 0; transform: translateX(-4px); transition: opacity .15s ease, transform .15s ease;
+  }
+  .mode-card:hover .mode-card-cta { opacity: 1; transform: translateX(0); }
+  .mode-card:hover .icon-chip { transform: scale(1.08); }
+  .icon-chip { transition: transform .15s ease; }
+
+  .benefits-card { margin-top: 8px; }
+  .benefits-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 18px;
+  }
+  .benefit { display: flex; flex-direction: column; gap: 8px; }
+  .benefit strong { color: var(--text); font-size: 1em; }
+  .benefit p { margin: 0; }
+
+  /* responsivo: empilha em telas menores */
+  @media (max-width: 900px) {
+    .mode-grid { flex-direction: column; }
+    .benefits-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    nav.tabs { flex-wrap: wrap; }
+    main { padding: 16px 12px; }
+  }
+
+  /* ---------- carrossel de beneficios ---------- */
+  .benefits-section { margin-top: 8px; }
+  .carousel {
+    overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    display: flex; margin-top: 18px; padding-bottom: 6px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .carousel-track { display: flex; gap: 16px; }
+  .benefit-card {
+    scroll-snap-align: start; flex: 0 0 260px;
+    background: linear-gradient(180deg, var(--surface-raised), var(--surface-solid));
+    border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+    padding: 22px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .benefit-card strong { color: var(--text); font-size: 1em; }
+  .benefit-card p { margin: 0; color: var(--text-dim); font-size: .9em; }
+  .carousel-dots { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+  .carousel-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--border);
+    cursor: pointer; transition: background .15s ease, transform .15s ease;
+  }
+  .carousel-dot.active { background: var(--accent); transform: scale(1.3); }
+  @media (max-width: 600px) {
+    .benefit-card { flex-basis: 78vw; }
+  }
   a.btnlink {
     display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #06110a; text-decoration: none;
     padding: 12px 20px; border-radius: var(--radius-sm); font-weight: 700; font-size: 14px;
@@ -343,20 +451,22 @@
   <symbol id="ic-code" viewBox="0 0 24 24"><path d="m8 18-6-6 6-6M16 6l6 6-6 6"/></symbol>
   <symbol id="ic-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
   <symbol id="ic-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="ic-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 4 6 4 9s-1.5 6.5-4 9c-2.5-2.5-4-6-4-9s1.5-6.5 4-9Z"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
 </svg>
 
 <header>
   <div class="brand">
     <div class="brand-mark"><svg class="icon"><use href="#ic-sparkle"/></svg></div>
     <div class="brand-text">
-      <h1><a href="/">GitHub Reels Generator</a></h1>
-      <span class="tag">avatar HeyGen + captura de tela + legenda karaokê</span>
+      <h1><a href="/">AutoReels Studio</a></h1>
+      <span class="tag">cola um link, sai um reel pronto pra postar</span>
     </div>
   </div>
   <nav class="tabs">
     <a href="/" class="{{ 'active' if active_tab == 'novo' else '' }}"><svg class="icon"><use href="#ic-plus"/></svg>Gerar novo</a>
-    <!-- Aba "Remodelar" tirada do menu a pedido do Henrique (rota /remodelar continua funcionando por link direto). -->
     <a href="/historico" class="{{ 'active' if active_tab == 'historico' else '' }}"><svg class="icon"><use href="#ic-clock"/></svg>Histórico</a>
+    <a href="/config" class="{{ 'active' if active_tab == 'config' else '' }}"><svg class="icon"><use href="#ic-settings"/></svg>Configurações</a>
   </nav>
 </header>
 <main>

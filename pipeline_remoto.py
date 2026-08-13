@@ -20,6 +20,7 @@ a paleta de cores e recompor em segundos, sem rodar o whisper de novo.
 import argparse
 import json
 import os
+from PIL import Image
 import random
 import subprocess
 import sys
@@ -278,6 +279,9 @@ def build_video(
         print("usando transcricao e rosto em cache (so recompondo com as novas cores)", flush=True)
         words = cache["words"]
         fx, fy = cache["face"]
+        frame_png = os.path.join(work_dir, "frame.png")
+        if not os.path.exists(frame_png):
+            run(f'ffmpeg -v error -y -ss 5 -i "{avatar_path}" -frames:v 1 "{frame_png}"')
     else:
         print("ETAPA:transcrevendo", flush=True)
         wav = os.path.join(work_dir, "audio.wav")
@@ -309,9 +313,32 @@ def build_video(
 
     face_x = int(fx - 300)
     face_y = int(fy - 300)
-    box_x = int(fx - 430)
+
+    # box_x/box_y posicionam o corte de 860x1700 (avatarbox, o cutaway em
+    # tela cheia) - MAS esse corte agora acontece depois de [av2] ser
+    # escalado pra cobrir 1080x1920 (fix pra avatar menor que isso, ver
+    # commit da caixa do avatar). fx/fy foram detectados na resolucao
+    # ORIGINAL do video do avatar (pode ser 720x1280, etc) - se usar eles
+    # direto no canvas ja escalado, a caixa fica desalinhada/descentralizada
+    # (foi exatamente o bug reportado: "avatar em tela cheia nao ficou
+    # centralizado"). Aqui reproduz-se em Python a MESMA conta que o
+    # ffmpeg faz (scale=1080:1920:force_original_aspect_ratio=increase,
+    # crop=1080:1920 = escala uniforme pelo maior fator necessario, depois
+    # corta o excedente simetricamente do centro) pra converter fx/fy pro
+    # sistema de coordenadas do canvas 1080x1920 ANTES de calcular
+    # box_x/box_y. Pra avatar que ja e ~1080x1920 nativo isso e
+    # praticamente um no-op (scale_factor=1).
+    with Image.open(frame_png) as _im:
+        avatar_w, avatar_h = _im.size
+    _scale = max(1080 / avatar_w, 1920 / avatar_h)
+    _crop_x = (avatar_w * _scale - 1080) / 2
+    _crop_y = (avatar_h * _scale - 1920) / 2
+    box_fx = fx * _scale - _crop_x
+    box_fy = fy * _scale - _crop_y
+
+    box_x = int(box_fx - 430)
     box_y_target = 0.57
-    box_y = int(fy - box_y_target * 1700)
+    box_y = int(box_fy - box_y_target * 1700)
     box_y = max(0, min(box_y, 1920 - 1700))
     box_x = max(0, min(box_x, 1080 - 860))
 

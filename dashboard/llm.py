@@ -44,10 +44,30 @@ def _load_env_file(path):
     return env
 
 
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+
+
+def load_config():
+    try:
+        with open(CONFIG_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_config(cfg):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+
 def _gemini_key():
+    # ordem: chave salva na tela de Configuracoes > variavel de ambiente >
+    # chave ja usada por outro projeto no mesmo VPS (fallback historico)
+    cfg_key = load_config().get("gemini_api_key")
+    if cfg_key:
+        return cfg_key
     if os.environ.get("GEMINI_API_KEY"):
         return os.environ["GEMINI_API_KEY"]
-    # reaproveita a chave já usada pelo vexa-lite (brain.env) neste VPS
     env = _load_env_file("/opt/vexa-lite/brain.env")
     return env.get("GEMINI_API_KEY")
 
@@ -227,6 +247,152 @@ def gerar_roteiro(full_name, description, readme_text, stars=None, language=None
             gerar_roteiro_fallback(full_name, description, readme_text, gatilho, idioma),
             f"fallback_heuristico:erro_{engine}:{e}",
         )
+
+
+
+# ---------------- modo "Site Reels": mesmo pipeline, mas a partir de um link
+# qualquer (nao so github.com) - roteiro apresenta o site/produto em vez de
+# um "repositorio open source". Reaproveita scroll_capture.py (que ja aceita
+# qualquer URL) e pipeline_remoto.py sem nenhuma mudanca.
+
+SITE_PROMPT_TEMPLATE_PT = """Voce escreve roteiros de reels de Instagram apresentando um site/produto/ferramenta, de um jeito natural e envolvente, tom de brasileiro falando de boca, sem parecer texto de IA, sem emojis, sem markdown, so o texto corrido que vai ser narrado em voz.
+
+Regras obrigatorias:
+- Primeiras 1-2 frases: hook chamativo que prende atencao nos 2 primeiros segundos (pode ser um problema que a ferramenta resolve, uma comparacao, ou um fato surpreendente).
+- Depois explica o que o site/ferramenta faz e por que isso importa, em linguagem simples.
+- Corpo com 2 a 3 paragrafos curtos (frases curtas, faceis de narrar).
+- Termina com um fechamento curto que retoma o gancho do inicio, seguido de uma chamada pra ação natural (ex: "da uma olhada no link", "vale a pena conferir").
+- Duracao alvo: entre 35 e 50 segundos falado (aproximadamente 90 a 130 palavras).
+- NAO use hashtags, NAO use markdown, NAO numere paragrafos, NAO use aspas ao redor do texto todo.
+- Nao invente numeros/funcionalidades que nao estao no conteudo abaixo.
+
+Site: {titulo}
+Descricao: {descricao}
+
+Conteudo da pagina:
+{conteudo}
+
+Escreva so o roteiro final, pronto pra narrar, nada mais."""
+
+SITE_PROMPT_TEMPLATE_EN = """You write Instagram reel scripts presenting a website/product/tool, in a natural and engaging spoken tone, doesn't sound like AI-written text, no emojis, no markdown, just the flowing text that will be narrated out loud.
+
+Mandatory rules:
+- First 1-2 sentences: an attention-grabbing hook for the first 2 seconds (can be a problem the tool solves, a comparison, or a surprising fact).
+- Then explain what the site/tool does and why it matters, in simple language.
+- Body with 2 to 3 short paragraphs (short sentences, easy to narrate).
+- End with a short closing callback that ties back to the opening hook, followed by a natural call to action (e.g. "check the link", "worth taking a look").
+- Target length: 35 to 50 seconds spoken (roughly 90 to 130 words).
+- Do NOT use hashtags, do NOT use markdown, do NOT number paragraphs, do NOT wrap the whole text in quotes.
+- Don't invent numbers/features that aren't in the content below.
+
+Site: {titulo}
+Description: {descricao}
+
+Page content:
+{conteudo}
+
+Write only the final script, ready to narrate, nothing else."""
+
+SITE_PROMPT_TEMPLATES = {"pt": SITE_PROMPT_TEMPLATE_PT, "en": SITE_PROMPT_TEMPLATE_EN}
+
+
+def build_site_prompt(titulo, descricao, conteudo, idioma="pt"):
+    idioma = idioma if idioma in IDIOMAS else "pt"
+    template = SITE_PROMPT_TEMPLATES[idioma]
+    return template.format(
+        titulo=titulo or "(sem titulo)",
+        descricao=descricao or ("(sem descricao)" if idioma == "pt" else "(no description)"),
+        conteudo=(conteudo or "")[:5000] or ("(sem conteudo)" if idioma == "pt" else "(no content)"),
+    )
+
+
+def gerar_roteiro_site_fallback(titulo, descricao, idioma="pt"):
+    base = descricao or titulo or ("Esse site tem algo interessante pra mostrar." if idioma == "pt" else "This site has something interesting to show.")
+    if idioma == "en":
+        partes = [
+            f"Here's something worth checking out: {titulo or 'this site'}.",
+            f"{base.strip().rstrip('.')}.",
+            "Worth taking a look if this sounds useful to you.",
+        ]
+    else:
+        partes = [
+            f"Olha só uma coisa interessante que achei: {titulo or 'esse site'}.",
+            f"{base.strip().rstrip('.')}.",
+            "Vale a pena dar uma conferida se isso faz sentido pra você.",
+        ]
+    return "\n\n".join(partes)
+
+
+def gerar_roteiro_site(titulo, descricao, conteudo, idioma="pt", engine="gemini"):
+    """Retorna (texto_roteiro, origem) - mesma engine (Gemini/Claude) do modo
+    GitHub, so muda o prompt (nao presume que e um repositorio de codigo)."""
+    idioma = idioma if idioma in IDIOMAS else "pt"
+    engine = engine if engine in ENGINES else "gemini"
+    prompt = build_site_prompt(titulo, descricao, conteudo, idioma)
+    try:
+        if engine == "claude":
+            texto = _call_claude(prompt)
+        else:
+            texto = _call_gemini(prompt)
+        return texto, engine
+    except Exception as e:  # noqa: BLE001
+        return (
+            gerar_roteiro_site_fallback(titulo, descricao, idioma),
+            f"fallback_heuristico:erro_{engine}:{e}",
+        )
+
+
+def fetch_site_info(url):
+    """Baixa um site qualquer (nao precisa ser GitHub) e extrai titulo, meta
+    description e um recorte do texto visivel da pagina - equivalente ao
+    fetch_repo_info(), mas generico. Extracao simples via regex (sem
+    dependencia de BeautifulSoup, que nao esta instalada no venv)."""
+    url = url.strip()
+    if not re.match(r"^https?://", url):
+        url = "https://" + url
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "Mozilla/5.0 (compatible; canal-github-reels/1.0)"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:  # noqa: BLE001
+        raise ValueError(f"Não consegui acessar {url} ({e})")
+
+    def _first(pattern, text, flags=re.I | re.S):
+        m = re.search(pattern, text, flags)
+        return m.group(1).strip() if m else ""
+
+    titulo = _first(r"<title[^>]*>(.*?)</title>", html)
+    titulo = re.sub(r"\s+", " ", titulo)[:200]
+
+    descricao = _first(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']', html)
+    if not descricao:
+        descricao = _first(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']*)["\']', html)
+    descricao = re.sub(r"\s+", " ", descricao)[:400]
+
+    body = _first(r"<body[^>]*>(.*)</body>", html) or html
+    body = re.sub(r"<script[^>]*>.*?</script>", " ", body, flags=re.S | re.I)
+    body = re.sub(r"<style[^>]*>.*?</style>", " ", body, flags=re.S | re.I)
+    body = re.sub(r"<[^>]+>", " ", body)
+    body = re.sub(r"&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;", " ", body)
+    body = re.sub(r"\s{2,}", " ", body).strip()
+
+    return {
+        "full_name": titulo or url,
+        "titulo": titulo or url,
+        "description": descricao,
+        "readme": body[:5000],
+        "conteudo": body[:5000],
+        "html_url": url,
+        "owner": "",
+        "repo": "",
+        "stars": None,
+        "forks": None,
+        "language": None,
+        "license": None,
+        "topics": [],
+    }
 
 
 def fetch_repo_info(repo_url):

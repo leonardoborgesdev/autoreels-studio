@@ -33,13 +33,12 @@ import threading
 import unicodedata
 import uuid
 
-from flask import Flask, jsonify, render_template, request, send_file, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_file, url_for
 from werkzeug.utils import secure_filename
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import colorize  # noqa: E402
 import llm  # noqa: E402
-import freecut_bundle  # noqa: E402
 
 BASE_PIPELINE_DIR = "/opt/canal-github-reels"
 DASH_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -287,6 +286,7 @@ def do_generate_script(job_id, idioma="pt", engine="gemini", tema_extra=None):
     idioma_label = "English" if idioma == "en" else "PT-BR"
     append_log(state, f"Gerando roteiro ({engine_label} / fallback, {idioma_label})...")
     info = state.get("repo_info")
+    is_site = state.get("source_type") == "site"
     if info:
         full_name, description, readme_text = info["full_name"], info["description"], info["readme"]
         stars, language = info["stars"], info["language"]
@@ -296,9 +296,15 @@ def do_generate_script(job_id, idioma="pt", engine="gemini", tema_extra=None):
         readme_text = ""
         stars, language = None, None
     try:
-        texto, origem = llm.gerar_roteiro(
-            full_name, description, readme_text, stars, language, idioma=idioma, engine=engine,
-        )
+        if is_site:
+            texto, origem = llm.gerar_roteiro_site(
+                info.get("titulo", full_name) if info else full_name,
+                description, readme_text, idioma=idioma, engine=engine,
+            )
+        else:
+            texto, origem = llm.gerar_roteiro(
+                full_name, description, readme_text, stars, language, idioma=idioma, engine=engine,
+            )
         state = load_state(job_id)
         state["roteiro"] = texto
         state["roteiro_origem"] = origem
@@ -545,21 +551,69 @@ def ensure_remodel_slots():
 
 @app.route("/")
 def index():
-    return render_template("index.html", jobs=list_jobs(kind="capture"), active_tab="novo")
+    return render_template("index.html", active_tab="novo")
 
 
-@app.route("/remodelar")
-def remodelar():
-    ensure_remodel_slots()
+@app.route("/novo/github")
+def novo_github():
     return render_template(
-        "remodelar.html", jobs=list_jobs(kind="remodel"),
-        map_exists=os.path.exists(REMODEL_MAP_FILE), active_tab="remodelar",
+        "novo.html", active_tab="novo", modo="github",
+        jobs=[j for j in list_jobs(kind="capture") if j.get("source_type") != "site"],
+    )
+
+
+@app.route("/novo/site")
+def novo_site():
+    return render_template(
+        "novo.html", active_tab="novo", modo="site",
+        jobs=[j for j in list_jobs(kind="capture") if j.get("source_type") == "site"],
     )
 
 
 @app.route("/historico")
 def historico():
     return render_template("historico.html", outputs=list_all_outputs(), active_tab="historico")
+
+
+def _mask(value):
+    if not value:
+        return ""
+    value = str(value)
+    if len(value) <= 8:
+        return "•" * len(value)
+    return value[:4] + "•" * (len(value) - 8) + value[-4:]
+
+
+@app.route("/config", methods=["GET", "POST"])
+def config_page():
+    if request.method == "POST":
+        cfg = llm.load_config()
+        gemini_key = (request.form.get("gemini_api_key") or "").strip()
+        github_token = (request.form.get("github_token") or "").strip()
+        # campo vazio = nao mexe na chave ja salva (evita apagar sem querer
+        # so porque o campo mascarado veio vazio de volta no submit)
+        if gemini_key:
+            cfg["gemini_api_key"] = gemini_key
+        if github_token:
+            cfg["github_token"] = github_token
+        llm.save_config(cfg)
+        return redirect(url_for("config_page", salvo=1))
+
+    cfg = llm.load_config()
+    claude_disponivel = os.path.exists(llm.CLAUDE_BIN)
+    total_jobs = len(list_jobs())
+    total_outputs = len(list_all_outputs())
+    return render_template(
+        "config.html",
+        active_tab="config",
+        gemini_key_masked=_mask(cfg.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")),
+        gemini_key_set=bool(llm._gemini_key()),
+        github_token_masked=_mask(cfg.get("github_token")),
+        claude_disponivel=claude_disponivel,
+        total_jobs=total_jobs,
+        total_outputs=total_outputs,
+        salvo=request.args.get("salvo"),
+    )
 
 
 @app.route("/job/<job_id>")
@@ -587,12 +641,18 @@ def create_job():
         return jsonify({"error": "informe o link do repositório"}), 400
     idioma = data.get("idioma") or "pt"
     engine = data.get("engine") or "gemini"
+    source_type = data.get("source_type") or "github"
+    if source_type not in ("github", "site"):
+        source_type = "github"
     if idioma not in llm.IDIOMAS:
         idioma = "pt"
     if engine not in llm.ENGINES:
         engine = "gemini"
     try:
-        info = llm.fetch_repo_info(repo_url)
+        if source_type == "site":
+            info = llm.fetch_site_info(repo_url)
+        else:
+            info = llm.fetch_repo_info(repo_url)
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": str(e)}), 400
 
@@ -600,6 +660,7 @@ def create_job():
     state = {
         "id": job_id,
         "kind": "capture",
+        "source_type": source_type,
         "repo_url": repo_url,
         "repo_info": info,
         "created_at": datetime.datetime.now().isoformat(),
@@ -816,40 +877,6 @@ def download(job_id):
         return "Arquivo não encontrado", 404
     name = state.get("output_name", "reel") + ".mp4"
     return send_file(path, as_attachment=True, download_name=name)
-
-
-FREECUT_ORIGIN = "https://editor.automatrixapps99x.win"
-
-
-@app.route("/job/<job_id>/freecut_bundle")
-def freecut_bundle_download(job_id):
-    """Gera (ou reaproveita, se ainda válido) o pacote de projeto do FreeCut
-    (.freecut.zip) pro vídeo final desse job, com o avatar/legenda/música já
-    posicionados igual ao vídeo composto.
-
-    Servido com CORS liberado pra origem do FreeCut (editor.automatrixapps99x.win)
-    porque agora é buscado direto via fetch() pelo próprio FreeCut (autoimport
-    por query param, ver routes/projects/index.tsx) em vez de baixado pro
-    disco do usuário e importado manualmente."""
-    state = load_state(job_id)
-    if not state or not state.get("output_video"):
-        return jsonify({"error": "vídeo final ainda não está pronto"}), 404
-    jdir = job_dir(job_id)
-    out_path = os.path.join(jdir, "projeto_freecut.freecut.zip")
-    try:
-        needs_build = (
-            not os.path.exists(out_path)
-            or os.path.getmtime(out_path) < os.path.getmtime(state["output_video"])
-        )
-        if needs_build:
-            freecut_bundle.generate_freecut_bundle(job_id, state, jdir, out_path)
-    except Exception as e:  # noqa: BLE001
-        return jsonify({"error": f"falha ao gerar projeto do editor: {e}"}), 500
-    name = (state.get("output_name") or "reel") + ".freecut.zip"
-    resp = send_file(out_path, as_attachment=True, download_name=name)
-    resp.headers["Access-Control-Allow-Origin"] = FREECUT_ORIGIN
-    resp.headers["Vary"] = "Origin"
-    return resp
 
 
 @app.route("/job/<job_id>/legenda_dm")

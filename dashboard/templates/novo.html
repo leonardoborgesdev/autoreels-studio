@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ 'GitHub Reels' if modo == 'github' else 'Site Reels' }} — AutoReels Studio{% endblock %}
+{% block content %}
+{% set is_github = modo == 'github' %}
+<div class="hero">
+  <span class="eyebrow-pill"><svg class="icon icon-sm"><use href="{{ '#ic-github' if is_github else '#ic-globe' }}"/></svg>{{ 'GitHub Reels' if is_github else 'Site Reels' }}</span>
+  <h1 class="hero-title">{{ 'Cole o link de um repositório' if is_github else 'Cole o link de um site' }}</h1>
+  <p class="hero-sub">{{ 'A gente lê o README, escreve o roteiro e grava a página rolando.' if is_github else 'A gente lê a página, escreve o roteiro e grava ela rolando.' }} Você só entra com a narração (avatar) e escolhe as cores.</p>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip{{ '' if is_github else ' blue' }}"><svg class="icon"><use href="{{ '#ic-github' if is_github else '#ic-globe' }}"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">Passo 1</span>
+        <h2>{{ 'Link do repositório' if is_github else 'Link do site' }}</h2>
+      </div>
+    </div>
+  </div>
+  <form id="form-new" style="margin-top:16px">
+    <label for="repo_url"><svg class="icon icon-sm"><use href="#ic-link"/></svg>{{ 'Link do repositório' if is_github else 'Link do site' }}</label>
+    <div class="row">
+      <div style="flex:1">
+        <input type="url" id="repo_url" name="repo_url" placeholder="{{ 'https://github.com/owner/repo' if is_github else 'https://exemplo.com' }}" required>
+      </div>
+      <button type="submit"><svg class="icon"><use href="#ic-sparkle"/></svg>Gerar reel</button>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div style="flex:1; min-width:160px">
+        <label for="idioma"><svg class="icon icon-sm"><use href="#ic-edit"/></svg>Idioma do roteiro</label>
+        <select id="idioma">
+          <option value="pt" selected>Português (PT-BR)</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:160px">
+        <label for="engine"><svg class="icon icon-sm"><use href="#ic-sparkle"/></svg>Motor do roteiro</label>
+        <select id="engine">
+          <option value="gemini" selected>Gemini</option>
+          <option value="claude">Claude</option>
+        </select>
+      </div>
+    </div>
+  </form>
+  <p id="err" style="color:var(--danger); margin-top:10px"></p>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <div class="title">
+      <div class="icon-chip blue"><svg class="icon"><use href="#ic-clock"/></svg></div>
+      <div class="title-text">
+        <span class="eyebrow">{{ jobs|length }} job{{ 's' if jobs|length != 1 else '' }}</span>
+        <h2>Seus jobs {{ 'do GitHub Reels' if is_github else 'do Site Reels' }}</h2>
+      </div>
+    </div>
+  </div>
+  <div class="joblist">
+    {% for j in jobs %}
+    <a href="/job/{{ j.id }}">
+      <strong>{{ j.repo_info.full_name if j.repo_info else j.repo_url }}</strong>
+      <div class="badges">
+        <span class="badge" data-status="{{ 'ok' if j.render_status=='pronto' else ('err' if j.render_status=='erro' else 'busy') }}">
+          <span class="dot"></span>{{ j.render_status }}
+        </span>
+      </div>
+      <div class="meta">{{ j.created_at }} · roteiro: {{ j.script_status }} · captura: {{ j.capture_status }}</div>
+    </a>
+    {% else %}
+    <div class="empty-state">
+      <svg class="icon"><use href="#ic-film"/></svg>
+      <p>Nenhum job ainda. Cole um link acima pra começar.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+document.getElementById('form-new').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = document.getElementById('repo_url').value;
+  const btn = e.target.querySelector('button');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = 'Criando...';
+  document.getElementById('err').textContent = '';
+  try {
+    const idioma = document.getElementById('idioma').value;
+    const engine = document.getElementById('engine').value;
+    const resp = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({repo_url: url, idioma: idioma, engine: engine, source_type: '{{ modo }}'})
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'erro desconhecido');
+    window.location.href = data.redirect;
+  } catch (err) {
+    document.getElementById('err').textContent = err.message;
+    btn.disabled = false; btn.innerHTML = originalHtml;
+  }
+});
+</script>
+{% endblock %}

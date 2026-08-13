@@ -337,22 +337,6 @@ document.querySelectorAll('.prev-phase').forEach(el => {
 });
 showPhase('analise');
 
-function abrirNoEditor(jobId) {
-  // Baixa o projeto do FreeCut (.freecut.zip, já com avatar/legenda/música
-  // posicionados igual ao vídeo composto) e abre o editor numa aba nova.
-  // O FreeCut roda self-hosted na porta 8100; lá o usuário clica em
-  // Importar e escolhe o arquivo baixado (o navegador exige esse passo
-  // manual por segurança — não dá pra pré-carregar sozinho).
-  const a = document.createElement('a');
-  a.href = `/job/${jobId}/freecut_bundle`;
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  const freecutUrl = `${window.location.protocol}//${window.location.hostname}:8100/projects`;
-  window.open(freecutUrl, '_blank');
-}
-
 function badge(el, status, mapOk, mapErr) {
   el.dataset.status = mapOk.includes(status) ? 'ok' : (mapErr.includes(status) ? 'err' : (status === 'aguardando' || !status ? 'pending' : 'busy'));
   el.innerHTML = status ? `<span class="dot"></span>${status}` : '';
@@ -479,11 +463,7 @@ async function poll() {
   const outKey = j.output_video ? `out:${j.output_version || 0}` : 'noout';
   setMediaOnce('download-area', outKey, j.output_video
     ? `<video controls preload="metadata" src="/job/${jobId}/preview/output?v=${j.output_version || 0}"></video><br><br>
-       <div style="display:flex;gap:12px;flex-wrap:wrap;">
-         <a class="btnlink" href="/job/${jobId}/download"><svg class="icon"><use href="#ic-download"/></svg>Baixar vídeo pronto</a>
-         <a class="btnlink" href="#" onclick="abrirNoEditor('${jobId}'); return false;"><svg class="icon"><use href="#ic-download"/></svg>Abrir no editor</a>
-       </div>
-       <p class="muted" style="margin-top:8px;font-size:.85em;">"Abrir no editor" baixa o projeto do FreeCut (.freecut.zip — avatar, legenda e música já na posição do vídeo final) e abre o editor numa aba nova. Lá, clique em Importar e escolha o arquivo baixado.</p>`
+       <a class="btnlink" href="/job/${jobId}/download"><svg class="icon"><use href="#ic-download"/></svg>Baixar vídeo pronto</a>`
     : `<div class="empty-state"><svg class="icon"><use href="#ic-video"/></svg><p>O vídeo final aparece aqui assim que a composição terminar.</p></div>`);
 
   if (j.legenda_dm) {
