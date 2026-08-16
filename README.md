@@ -1,5 +1,7 @@
 # AutoReels Studio
 
+[![License: MIT](https://img.shields.io/github/license/leonardoborgesdev/autoreels-studio)](LICENSE) [![Top language](https://img.shields.io/github/languages/top/leonardoborgesdev/autoreels-studio)](#)
+
 **Cola um link — repositório do GitHub, qualquer site, ou seu próprio vídeo — e sai um reel vertical pronto pra postar: roteiro escrito por IA, captura de tela automática, avatar clonado, legenda estilo karaokê e música de fundo.**
 
 ![Tela inicial](docs/screenshots/01_home.png)
